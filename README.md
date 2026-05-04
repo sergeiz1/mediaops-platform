@@ -185,14 +185,22 @@ cd backend
 .\.venv\Scripts\alembic.exe upgrade head
 ```
 
-### Celery Worker (Windows-safe)
+### Celery Worker (Windows)
 
 ```bash
 cd backend
 .\run_worker.ps1
 ```
 
-### Seed Data (10 CERN assets)
+### Celery Worker (macOS / Linux)
+
+```bash
+cd backend
+source .venv/bin/activate
+celery -A app.workers.celery_app:celery_app worker --loglevel=info
+```
+
+### Seed Data (10 assets)
 
 ```bash
 cd backend
