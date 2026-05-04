@@ -57,6 +57,10 @@ The platform is planned around the following use cases:
 ## Architecture Overview
 
 The system follows a service-oriented structure with a dedicated frontend, backend API, and background worker layer.
+Detailed decision records and runbook docs are available in:
+
+- `docs/architecture-decisions.md`
+- `docs/operations.md`
 
 ### Planned architecture components
 
@@ -240,5 +244,5 @@ curl -X POST http://localhost:8000/api/v1/assets/reindex
 
 ## Author
 
-Showcase project by Serge Z.  
+Showcase project by Sergei Z.  
 Software Engineer | Platform Architecture | Full-Stack Development
