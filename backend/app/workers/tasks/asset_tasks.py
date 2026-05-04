@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models.asset import Asset, AssetStatus
+from app.services.search_service import upsert_asset_document
 from app.workers.celery_app import celery_app
 
 
@@ -20,6 +21,8 @@ def process_asset_task(asset_id: int) -> None:
         asset.status = AssetStatus.PROCESSING
         db.add(asset)
         db.commit()
+        db.refresh(asset)
+        upsert_asset_document(asset)
 
         # Placeholder for future ffprobe/ffmpeg processing pipeline.
         time.sleep(2)
@@ -27,12 +30,16 @@ def process_asset_task(asset_id: int) -> None:
         asset.status = AssetStatus.READY
         db.add(asset)
         db.commit()
+        db.refresh(asset)
+        upsert_asset_document(asset)
     except Exception:
         asset = db.get(Asset, asset_id)
         if asset is not None:
             asset.status = AssetStatus.FAILED
             db.add(asset)
             db.commit()
+            db.refresh(asset)
+            upsert_asset_document(asset)
         raise
     finally:
         db.close()

@@ -21,6 +21,7 @@ packaging==26.1
 prompt_toolkit==3.0.52
 psycopg2-binary==2.9.12
 psycopg[binary]==3.2.12
+opensearch-py==2.8.0
 pydantic==2.13.3
 pydantic-settings==2.14.0
 pydantic_core==2.46.3

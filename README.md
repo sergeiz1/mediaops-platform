@@ -26,8 +26,9 @@ This project is intentionally structured like a real product platform rather tha
 - Product-style platform architecture instead of a small demo app
 - React + TypeScript frontend with routed application shell
 - FastAPI backend with versioned API structure
-- Planned asynchronous processing with Celery and Redis
-- Planned PostgreSQL-based asset and job persistence
+- Asynchronous processing with Celery and Redis
+- PostgreSQL-based asset persistence with Alembic migrations
+- OpenSearch-backed search with automatic indexing and reindex endpoint
 - Foundation for media upload, processing, monitoring, and publishing workflows
 
 ---
@@ -81,7 +82,8 @@ The system follows a service-oriented structure with a dedicated frontend, backe
   - later MinIO / S3-compatible object storage
 
 - **Search**
-  - planned OpenSearch integration for asset discovery and filtering
+  - OpenSearch integration for asset discovery and filtering
+  - fallback to PostgreSQL query filtering when OpenSearch is unavailable
 
 ---
 
@@ -164,7 +166,7 @@ Frontend runs on `http://localhost:5173`.
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install fastapi uvicorn sqlalchemy psycopg2-binary alembic pydantic-settings celery redis python-multipart
+pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
 ```
 
@@ -172,11 +174,14 @@ Backend runs on `http://localhost:8000`.
 
 Health endpoint: `http://localhost:8000/api/v1/health`
 
-### Infrastructure (PostgreSQL + Redis)
+### Infrastructure (PostgreSQL + Redis + OpenSearch)
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres redis opensearch
 ```
+
+PostgreSQL is exposed on `localhost:5433`.
+OpenSearch is exposed on `http://localhost:9200`.
 
 ### Migrations
 
@@ -204,7 +209,13 @@ celery -A app.workers.celery_app:celery_app worker --loglevel=info
 
 ```bash
 cd backend
-.\.venv\Scripts\python.exe scripts\seed_cern_assets.py
+.\.venv\Scripts\python.exe -m scripts.seed_cern_assets
+```
+
+### OpenSearch Reindex
+
+```bash
+curl -X POST http://localhost:8000/api/v1/assets/reindex
 ```
 
 ---
@@ -222,6 +233,7 @@ cd backend
 - [x] Background job processing
 - [x] Media upload workflow
 - [x] Search and filtering
+- [x] OpenSearch integration (indexing, querying, reindex endpoint)
 - [x] Frontend GUI completion (assets, upload, jobs, filters, actions)
 
 ---

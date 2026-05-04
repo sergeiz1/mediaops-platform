@@ -13,6 +13,7 @@ from app.services.asset_service import (
     enqueue_asset_processing,
     get_asset_or_404,
     get_assets,
+    reindex_all_assets,
     resolve_storage_path,
     update_asset_record,
 )
@@ -39,6 +40,18 @@ def list_assets_endpoint(
         event_name=event_name,
         sort=sort,
     )
+
+
+@router.post("/reindex", status_code=status.HTTP_202_ACCEPTED)
+def reindex_assets_endpoint(db: Session = Depends(get_db)) -> dict[str, int]:
+    indexed = reindex_all_assets(db)
+    return {"indexed": indexed}
+
+
+@router.get("/reindex", status_code=status.HTTP_200_OK)
+def reindex_assets_endpoint_get(db: Session = Depends(get_db)) -> dict[str, int]:
+    indexed = reindex_all_assets(db)
+    return {"indexed": indexed}
 
 
 @router.get("/{asset_id}", response_model=AssetRead)

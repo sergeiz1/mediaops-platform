@@ -46,6 +46,14 @@ def get_asset_by_id(db: Session, asset_id: int) -> Asset | None:
     return db.get(Asset, asset_id)
 
 
+def get_assets_by_ids(db: Session, asset_ids: list[int]) -> list[Asset]:
+    if not asset_ids:
+        return []
+    rows = list(db.scalars(select(Asset).where(Asset.id.in_(asset_ids))).all())
+    row_map = {row.id: row for row in rows}
+    return [row_map[asset_id] for asset_id in asset_ids if asset_id in row_map]
+
+
 def create_asset(db: Session, payload: AssetCreate) -> Asset:
     asset = Asset(**payload.model_dump())
     db.add(asset)
