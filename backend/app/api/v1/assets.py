@@ -1,0 +1,99 @@
+from typing import Literal
+
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.models.asset import AssetStatus, AssetVisibility
+from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate, AssetUploadResponse
+from app.services.asset_service import (
+    build_upload_file_key,
+    create_asset_record,
+    delete_asset_record,
+    enqueue_asset_processing,
+    get_asset_or_404,
+    get_assets,
+    resolve_storage_path,
+    update_asset_record,
+)
+
+router = APIRouter(prefix="/assets")
+
+
+@router.get("", response_model=list[AssetRead])
+def list_assets_endpoint(
+    q: str | None = Query(default=None),
+    status_filter: AssetStatus | None = Query(default=None, alias="status"),
+    visibility: AssetVisibility | None = Query(default=None),
+    speaker: str | None = Query(default=None),
+    event_name: str | None = Query(default=None),
+    sort: Literal["newest", "oldest", "title"] = Query(default="newest"),
+    db: Session = Depends(get_db),
+) -> list[AssetRead]:
+    return get_assets(
+        db,
+        query=q,
+        status=status_filter,
+        visibility=visibility,
+        speaker=speaker,
+        event_name=event_name,
+        sort=sort,
+    )
+
+
+@router.get("/{asset_id}", response_model=AssetRead)
+def get_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
+    return get_asset_or_404(db, asset_id)
+
+
+@router.post("", response_model=AssetRead, status_code=status.HTTP_201_CREATED)
+def create_asset_endpoint(payload: AssetCreate, db: Session = Depends(get_db)) -> AssetRead:
+    return create_asset_record(db, payload)
+
+
+@router.patch("/{asset_id}", response_model=AssetRead)
+def update_asset_endpoint(
+    asset_id: int, payload: AssetUpdate, db: Session = Depends(get_db)
+) -> AssetRead:
+    return update_asset_record(db, asset_id, payload)
+
+
+@router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> Response:
+    delete_asset_record(db, asset_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{asset_id}/process", status_code=status.HTTP_202_ACCEPTED)
+def process_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
+    enqueue_asset_processing(db, asset_id)
+    return {"status": "accepted"}
+
+
+@router.post("/upload", response_model=AssetUploadResponse, status_code=status.HTTP_201_CREATED)
+async def upload_asset_endpoint(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    description: str | None = Form(default=None),
+    speaker: str | None = Form(default=None),
+    event_name: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+) -> AssetUploadResponse:
+    file_key = build_upload_file_key(file.filename or "upload.bin")
+    stored_path = resolve_storage_path(file_key)
+    content = await file.read()
+    stored_path.write_bytes(content)
+
+    asset = create_asset_record(
+        db,
+        AssetCreate(
+            title=title,
+            description=description,
+            file_key=file_key,
+            file_name=file.filename or "upload.bin",
+            mime_type=file.content_type,
+            speaker=speaker,
+            event_name=event_name,
+        ),
+    )
+    return AssetUploadResponse(asset=asset, stored_path=str(stored_path))
