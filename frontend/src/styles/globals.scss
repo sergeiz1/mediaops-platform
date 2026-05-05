@@ -133,6 +133,16 @@ select {
   gap: 8px;
   color: var(--muted);
   font-size: 13px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background-color 140ms ease;
+}
+
+.topbar__status:hover {
+  background: rgba(31, 92, 169, 0.1);
 }
 
 .topbar__status-dot {
@@ -140,6 +150,14 @@ select {
   height: 9px;
   border-radius: 999px;
   background: var(--signal);
+}
+
+.topbar__status-dot.operational {
+  background: #20a35b;
+}
+
+.topbar__status-dot.degraded {
+  background: #d2174a;
 }
 
 .app-shell__content {
@@ -159,6 +177,10 @@ select {
 
 .muted {
   color: #d8e5f7;
+}
+
+.job-card .muted {
+  color: #4b5f7a;
 }
 
 .toolbar {
@@ -293,10 +315,20 @@ select {
   border-radius: 8px;
   border: 1px solid #d1d5db;
   background: #fff;
+  color: #13253f;
 }
 
 .stack-form label {
   color: #f0f6ff;
+}
+
+.stack-form input::placeholder,
+.stack-form textarea::placeholder {
+  color: #6e809a;
+}
+
+.stack-form input[type='file'] {
+  color: #13253f;
 }
 
 .app-shell__content > p {
@@ -340,19 +372,102 @@ select {
 .job-card {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   padding: 12px;
   box-shadow: 0 4px 18px rgba(11, 31, 62, 0.1);
-  transition: transform 120ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: transform 120ms ease, box-shadow 160ms ease, border-color 160ms ease, padding 140ms ease;
+}
+
+.job-card strong {
+  color: #13253f;
+}
+
+.job-card__main {
+  min-width: 0;
+}
+
+.job-card.expanded {
+  padding: 14px 14px 16px;
+}
+
+.job-card__details {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  color: #3f536f;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .job-card:hover {
   transform: translateY(-1px);
   border-color: #aac3e2;
   box-shadow: 0 12px 26px rgba(14, 40, 80, 0.2);
+}
+
+.status-panel {
+  max-width: 760px;
+  background: #ffffff;
+  color: #13253f;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 22px rgba(12, 29, 57, 0.18);
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #eef2f7;
+  padding: 10px 2px;
+}
+
+.status-row:last-child {
+  border-bottom: 0;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.status-badge.operational {
+  background: #e8f8ef;
+  color: #16713f;
+}
+
+.status-badge.degraded {
+  background: #ffebf0;
+  color: #9a1237;
+}
+
+.status-badge.info {
+  background: #e8f0fb;
+  color: #1f4f92;
+}
+
+.status-actions {
+  margin-top: 14px;
+}
+
+.status-actions button {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #9fb4d3;
+  background: #f0f6ff;
+  color: #1a3e74;
+  cursor: pointer;
 }
 
 @keyframes dangerPulse {

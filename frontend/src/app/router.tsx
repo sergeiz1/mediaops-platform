@@ -4,6 +4,7 @@ import DashboardPage from '../pages/DashboardPage'
 import AssetsPage from '../pages/AssetsPage'
 import UploadPage from '../pages/UploadPage'
 import JobsPage from '../pages/JobsPage'
+import SystemStatusPage from '../pages/SystemStatusPage'
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
       { path: 'assets', element: <AssetsPage /> },
       { path: 'upload', element: <UploadPage /> },
       { path: 'jobs', element: <JobsPage /> },
+      { path: 'system-status', element: <SystemStatusPage /> },
     ],
   },
 ])
