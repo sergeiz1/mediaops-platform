@@ -38,12 +38,12 @@ function AssetTable({ assets, onProcess, onDelete, busyAssetId = null }: Props) 
               <td>{asset.status}</td>
               <td>{new Date(asset.uploaded_at).toLocaleString()}</td>
               <td className="actions">
-                <button
-                  onClick={() => onProcess?.(asset.id)}
-                  disabled={!onProcess || busyAssetId === asset.id}
-                >
-                  Process
-                </button>
+                  <button
+                    onClick={() => onProcess?.(asset.id)}
+                    disabled={!onProcess || busyAssetId === asset.id || asset.status === 'ready' || asset.status === 'processing'}
+                  >
+                    Process
+                  </button>
                 <button
                   className="danger"
                   onClick={() => onDelete?.(asset.id)}

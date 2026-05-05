@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listAssets, processAsset } from '../api/assets'
+import { listAssets, markAssetFailed, markAssetReady, processAsset } from '../api/assets'
 import type { Asset } from '../types/asset'
 
 function JobsPage() {
@@ -8,24 +8,57 @@ function JobsPage() {
   const [busyAssetId, setBusyAssetId] = useState<number | null>(null)
   const [expandedAssetIds, setExpandedAssetIds] = useState<number[]>([])
 
-  const load = async () => {
-    setLoading(true)
+  const load = async (background = false) => {
+    if (!background) {
+      setLoading(true)
+    }
     try {
       const data = await listAssets({ sort: 'newest' })
       setAssets(data.filter((asset) => asset.status !== 'ready'))
     } finally {
-      setLoading(false)
+      if (!background) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    void load()
+    const bootstrap = setTimeout(() => {
+      void load()
+    }, 0)
+    const timer = setInterval(() => {
+      void load(true)
+    }, 5000)
+    return () => {
+      clearTimeout(bootstrap)
+      clearInterval(timer)
+    }
   }, [])
 
   const handleRetry = async (assetId: number) => {
     setBusyAssetId(assetId)
     try {
       await processAsset(assetId)
+      await load()
+    } finally {
+      setBusyAssetId(null)
+    }
+  }
+
+  const handleMarkReady = async (assetId: number) => {
+    setBusyAssetId(assetId)
+    try {
+      await markAssetReady(assetId)
+      await load()
+    } finally {
+      setBusyAssetId(null)
+    }
+  }
+
+  const handleMarkFailed = async (assetId: number) => {
+    setBusyAssetId(assetId)
+    try {
+      await markAssetFailed(assetId)
       await load()
     } finally {
       setBusyAssetId(null)
@@ -62,15 +95,26 @@ function JobsPage() {
                 </div>
               ) : null}
             </div>
-            {asset.status === 'failed' ? (
-              <button onClick={() => handleRetry(asset.id)} disabled={busyAssetId === asset.id}>
-                Retry
-              </button>
-            ) : (
+            <div className="actions">
+              {asset.status === 'failed' ? (
+                <button onClick={() => handleRetry(asset.id)} disabled={busyAssetId === asset.id}>
+                  Retry
+                </button>
+              ) : null}
+              {asset.status === 'processing' ? (
+                <>
+                  <button onClick={() => handleMarkReady(asset.id)} disabled={busyAssetId === asset.id}>
+                    Mark ready
+                  </button>
+                  <button className="danger" onClick={() => handleMarkFailed(asset.id)} disabled={busyAssetId === asset.id}>
+                    Mark failed
+                  </button>
+                </>
+              ) : null}
               <button onClick={() => toggleDetails(asset.id)}>
                 {expandedAssetIds.includes(asset.id) ? 'Hide details' : 'Details'}
               </button>
-            )}
+            </div>
           </div>
         ))}
       </div>

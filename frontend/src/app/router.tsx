@@ -5,6 +5,7 @@ import AssetsPage from '../pages/AssetsPage'
 import UploadPage from '../pages/UploadPage'
 import JobsPage from '../pages/JobsPage'
 import SystemStatusPage from '../pages/SystemStatusPage'
+import LogsPage from '../pages/LogsPage'
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
       { path: 'upload', element: <UploadPage /> },
       { path: 'jobs', element: <JobsPage /> },
       { path: 'system-status', element: <SystemStatusPage /> },
+      { path: 'logs', element: <LogsPage /> },
     ],
   },
 ])

@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Asset, ListAssetsParams, UploadAssetPayload, UploadAssetResponse } from '../types/asset'
+import type { Asset, AssetStats, ListAssetsParams, UploadAssetPayload, UploadAssetResponse } from '../types/asset'
 
 export async function listAssets(params: ListAssetsParams = {}): Promise<Asset[]> {
   const { data } = await apiClient.get<Asset[]>('/api/v1/assets', { params })
@@ -8,6 +8,14 @@ export async function listAssets(params: ListAssetsParams = {}): Promise<Asset[]
 
 export async function processAsset(assetId: number): Promise<void> {
   await apiClient.post(`/api/v1/assets/${assetId}/process`)
+}
+
+export async function markAssetReady(assetId: number): Promise<void> {
+  await apiClient.post(`/api/v1/assets/${assetId}/mark-ready`)
+}
+
+export async function markAssetFailed(assetId: number): Promise<void> {
+  await apiClient.post(`/api/v1/assets/${assetId}/mark-failed`)
 }
 
 export async function deleteAsset(assetId: number): Promise<void> {
@@ -23,5 +31,10 @@ export async function uploadAsset(payload: UploadAssetPayload): Promise<UploadAs
   if (payload.event_name) formData.append('event_name', payload.event_name)
 
   const { data } = await apiClient.post<UploadAssetResponse>('/api/v1/assets/upload', formData)
+  return data
+}
+
+export async function getAssetStats(days = 7): Promise<AssetStats> {
+  const { data } = await apiClient.get<AssetStats>('/api/v1/assets/stats', { params: { days } })
   return data
 }

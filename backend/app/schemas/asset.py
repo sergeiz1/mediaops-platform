@@ -38,6 +38,9 @@ class AssetRead(AssetBase):
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    processing_started_at: datetime | None = None
+    processing_finished_at: datetime | None = None
+    last_error: str | None = None
 
 
 class AssetUploadResponse(BaseModel):

@@ -17,6 +17,9 @@ export type Asset = {
   published_at: string | null
   created_at: string
   updated_at: string
+  processing_started_at: string | null
+  processing_finished_at: string | null
+  last_error: string | null
 }
 
 export type ListAssetsParams = {
@@ -39,4 +42,30 @@ export type UploadAssetPayload = {
 export type UploadAssetResponse = {
   asset: Asset
   stored_path: string
+}
+
+export type AssetStats = {
+  total_assets: number
+  by_status: Record<string, number>
+  by_mime_type: Record<string, number>
+  uploads_per_day: Array<{ date: string; count: number }>
+  pending_jobs: number
+  worker_online: boolean
+  processing_funnel: {
+    uploaded: number
+    processing: number
+    ready: number
+    failed: number
+  }
+  failure_insights: Array<{ reason: string; count: number }>
+  time_to_ready: {
+    avg_seconds: number
+    median_seconds: number
+    last_runtime_seconds: number
+  }
+  recent_activity: {
+    uploads: Array<{ id: number; title: string; at: string }>
+    process_starts: Array<{ id: number; title: string; at: string }>
+    fails: Array<{ id: number; title: string; at: string; reason: string }>
+  }
 }

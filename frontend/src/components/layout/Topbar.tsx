@@ -8,6 +8,7 @@ const pageTitles: Record<string, string> = {
   '/upload': 'Upload',
   '/jobs': 'Jobs',
   '/system-status': 'System Status',
+  '/logs': 'Logs',
 }
 
 function Topbar() {

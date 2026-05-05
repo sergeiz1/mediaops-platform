@@ -13,7 +13,9 @@ from app.services.asset_service import (
     enqueue_asset_processing,
     get_asset_or_404,
     get_assets,
+    get_dashboard_stats,
     reindex_all_assets,
+    resolve_processing_asset,
     resolve_storage_path,
     update_asset_record,
 )
@@ -40,6 +42,14 @@ def list_assets_endpoint(
         event_name=event_name,
         sort=sort,
     )
+
+
+@router.get("/stats")
+def get_asset_stats_endpoint(
+    days: int = Query(default=7, ge=1, le=90),
+    db: Session = Depends(get_db),
+) -> dict:
+    return get_dashboard_stats(db, days=days)
 
 
 @router.post("/reindex", status_code=status.HTTP_202_ACCEPTED)
@@ -81,6 +91,16 @@ def delete_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> Respo
 def process_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
     enqueue_asset_processing(db, asset_id)
     return {"status": "accepted"}
+
+
+@router.post("/{asset_id}/mark-ready", response_model=AssetRead)
+def mark_ready_endpoint(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
+    return resolve_processing_asset(db, asset_id, AssetStatus.READY)
+
+
+@router.post("/{asset_id}/mark-failed", response_model=AssetRead)
+def mark_failed_endpoint(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
+    return resolve_processing_asset(db, asset_id, AssetStatus.FAILED)
 
 
 @router.post("/upload", response_model=AssetUploadResponse, status_code=status.HTTP_201_CREATED)
