@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { getServiceLogs } from '../api/system'
+import { clearServiceLogs, getServiceLogs } from '../api/system'
 import axios from 'axios'
 
 type LogService = 'worker' | 'opensearch' | 'backend'
@@ -14,7 +14,9 @@ function LogsPage() {
   const [service, setService] = useState<LogService>(initialService)
   const [lines, setLines] = useState(120)
   const [content, setContent] = useState('Loading logs...')
+  const [logSizeBytes, setLogSizeBytes] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [clearing, setClearing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const title = useMemo(() => `${service[0].toUpperCase()}${service.slice(1)} Logs`, [service])
@@ -25,6 +27,7 @@ function LogsPage() {
     try {
       const data = await getServiceLogs(service, lines)
       setContent(data.content || '(no log output)')
+      setLogSizeBytes(data.log_size_bytes ?? 0)
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string } | undefined)?.detail
@@ -36,6 +39,31 @@ function LogsPage() {
       setLoading(false)
     }
   }, [service, lines])
+
+  const formatSize = (bytes: number) => {
+    const gb = bytes / (1024 * 1024 * 1024)
+    return `${gb.toFixed(2)} GB`
+  }
+
+  const sizeClass = logSizeBytes >= 1.8 * 1024 * 1024 * 1024 ? 'danger' : logSizeBytes >= 1.6 * 1024 * 1024 * 1024 ? 'warn' : 'ok'
+
+  const clearLogs = useCallback(async () => {
+    setClearing(true)
+    setError(null)
+    try {
+      await clearServiceLogs(service)
+      await load()
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const detail = (err.response?.data as { detail?: string } | undefined)?.detail
+        setError(detail ?? 'Could not clear logs')
+      } else {
+        setError('Could not clear logs')
+      }
+    } finally {
+      setClearing(false)
+    }
+  }, [service, load])
 
   useEffect(() => {
     setParams({ service })
@@ -65,9 +93,14 @@ function LogsPage() {
           <option value={500}>500 lines</option>
         </select>
         <button className="log-refresh-btn" type="button" onClick={() => void load()} disabled={loading} title={loading ? 'Refreshing logs' : 'Refresh logs'}>
-          <span aria-hidden="true">{loading ? '⏳' : '↻'}</span>
+          <span aria-hidden="true">{loading ? '...' : '↻'}</span>
           <span className="sr-only">{loading ? 'Refreshing logs' : 'Refresh logs'}</span>
         </button>
+        <button className="log-clear-btn" type="button" onClick={() => void clearLogs()} disabled={clearing || loading} title={clearing ? 'Clearing logs...' : 'Clear logs'}>
+          <span aria-hidden="true">{clearing ? '…' : '🗑'}</span>
+          <span className="sr-only">{clearing ? 'Clearing logs' : 'Clear logs'}</span>
+        </button>
+        <div className={`log-size-pill ${sizeClass}`}>Log size: {formatSize(logSizeBytes)}</div>
       </div>
 
       <div className="chart-card">

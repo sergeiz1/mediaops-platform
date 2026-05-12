@@ -67,13 +67,14 @@ function DashboardPage() {
   const processingPct = funnelTotal > 0 ? (funnel.processing / funnelTotal) * 100 : 0
   const readyPct = funnelTotal > 0 ? (funnel.ready / funnelTotal) * 100 : 0
 
-  const formatDuration = (seconds: number) => {
-    if (!seconds || seconds < 1) return '-'
-    if (seconds < 60) return `${Math.round(seconds)}s`
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.round(seconds % 60)
-    return `${mins}m ${secs}s`
-  }
+  const formatActivityTimestamp = (isoValue: string) =>
+    new Date(isoValue).toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
 
   return (
     <>
@@ -185,77 +186,7 @@ function DashboardPage() {
         </div>
       </div>
 
-      <div className="chart-grid">
-        <div className="chart-card">
-          <h3>Activity</h3>
-          <div className="stat-list">
-            {[
-              ...(stats?.recent_activity.uploads ?? []).map((item) => ({
-                key: `u-${item.id}-${item.at}`,
-                title: item.title,
-                at: item.at,
-                kind: 'upload',
-              })),
-              ...(stats?.recent_activity.process_starts ?? []).map((item) => ({
-                key: `p-${item.id}-${item.at}`,
-                title: item.title,
-                at: item.at,
-                kind: 'process start',
-              })),
-              ...(stats?.recent_activity.fails ?? []).map((item) => ({
-                key: `f-${item.id}-${item.at}`,
-                title: item.title,
-                at: item.at,
-                kind: 'failure',
-              })),
-            ]
-              .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-              .slice(0, 8)
-              .map((item) => (
-                <div className="stat-row" key={item.key}>
-                  <span>[{item.kind}] {item.title}</span>
-                  <strong>{new Date(item.at).toLocaleTimeString()}</strong>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        <div className="chart-card">
-          <h3>Time-to-ready</h3>
-          <div className="stat-list">
-            <div className="stat-row">
-              <span>Average</span>
-              <strong>{formatDuration(stats?.time_to_ready.avg_seconds ?? 0)}</strong>
-            </div>
-            <div className="stat-row">
-              <span>Median</span>
-              <strong>{formatDuration(stats?.time_to_ready.median_seconds ?? 0)}</strong>
-            </div>
-          </div>
-        </div>
-        <div className="chart-card">
-          <h3>Failure monitor</h3>
-          <div className="stat-list">
-            {(stats?.failure_insights ?? []).length === 0 && (stats?.recent_activity.fails ?? []).length === 0 ? (
-              <p className="chart-empty">No failures.</p>
-            ) : null}
-            {(stats?.failure_insights ?? []).map((item) => (
-              <div className="stat-row" key={`reason-${item.reason}`}>
-                <span title={item.reason}>{item.reason}</span>
-                <strong>{item.count}</strong>
-              </div>
-            ))}
-            {(stats?.recent_activity.fails ?? []).slice(0, 4).map((item) => (
-              <div className="stat-row" key={`recent-fail-${item.id}-${item.at}`}>
-                <span title={item.reason}>{item.title}</span>
-                <strong>{new Date(item.at).toLocaleTimeString()}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="chart-grid">
+      <div className="chart-grid chart-grid--logs">
         <div className="chart-card">
           <h3>Worker logs</h3>
           <div className="stat-list">
@@ -295,6 +226,63 @@ function DashboardPage() {
           <button className="log-cmd-btn" onClick={() => navigate('/logs?service=backend')} type="button">
             View logs
           </button>
+        </div>
+      </div>
+
+      <div className="chart-grid">
+        <div className="chart-card">
+          <h3>Activity</h3>
+          <div className="stat-list">
+            {[
+              ...(stats?.recent_activity.uploads ?? []).map((item) => ({
+                key: `u-${item.id}-${item.at}`,
+                title: item.title,
+                at: item.at,
+                kind: 'upload',
+              })),
+              ...(stats?.recent_activity.process_starts ?? []).map((item) => ({
+                key: `p-${item.id}-${item.at}`,
+                title: item.title,
+                at: item.at,
+                kind: 'process start',
+              })),
+              ...(stats?.recent_activity.fails ?? []).map((item) => ({
+                key: `f-${item.id}-${item.at}`,
+                title: item.title,
+                at: item.at,
+                kind: 'failure',
+              })),
+            ]
+              .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+              .slice(0, 8)
+              .map((item) => (
+                <div className="stat-row" key={item.key}>
+                  <span>[{item.kind}] {item.title}</span>
+                  <strong>{formatActivityTimestamp(item.at)}</strong>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        <div className="chart-card chart-card--double">
+          <h3>Failure monitor</h3>
+          <div className="stat-list">
+            {(stats?.failure_insights ?? []).length === 0 && (stats?.recent_activity.fails ?? []).length === 0 ? (
+              <p className="chart-empty">No failures.</p>
+            ) : null}
+            {(stats?.failure_insights ?? []).map((item) => (
+              <div className="stat-row" key={`reason-${item.reason}`}>
+                <span title={item.reason}>{item.reason}</span>
+                <strong>{item.count}</strong>
+              </div>
+            ))}
+            {(stats?.recent_activity.fails ?? []).slice(0, 4).map((item) => (
+              <div className="stat-row" key={`recent-fail-${item.id}-${item.at}`}>
+                <span title={item.reason}>{item.title}</span>
+                <strong>{formatActivityTimestamp(item.at)}</strong>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

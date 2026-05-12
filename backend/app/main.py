@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
+from app.core.logging import setup_file_logging
+from pathlib import Path
+
+setup_file_logging(Path(__file__).resolve().parents[1] / "logs" / "backend.log")
 
 app = FastAPI(
     title="Media Operations Platform API",

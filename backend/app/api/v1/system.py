@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import deque
 from pathlib import Path
 import subprocess
 import time
@@ -17,8 +16,31 @@ def _project_root() -> Path:
 def _read_tail(path: Path, lines: int) -> str:
     if not path.exists():
         return ""
-    with path.open("r", encoding="utf-8", errors="replace") as fh:
-        return "".join(deque(fh, maxlen=lines))
+    if lines <= 0:
+        return ""
+
+    # Efficient tail implementation for very large files:
+    # read only from the end in chunks until enough line breaks are found.
+    chunk_size = 4096
+    data = bytearray()
+    newline_count = 0
+
+    with path.open("rb") as fh:
+        fh.seek(0, 2)
+        file_size = fh.tell()
+        pos = file_size
+
+        while pos > 0 and newline_count <= lines:
+            read_size = chunk_size if pos >= chunk_size else pos
+            pos -= read_size
+            fh.seek(pos)
+            chunk = fh.read(read_size)
+            data[:0] = chunk
+            newline_count += chunk.count(b"\n")
+
+    text = data.decode("utf-8", errors="replace")
+    tail_lines = text.splitlines()[-lines:]
+    return ("\n".join(tail_lines) + "\n") if tail_lines else ""
 
 
 def _normalize_backend_logs(content: str) -> str:
@@ -53,6 +75,42 @@ def _logs_dir() -> Path:
     path = _project_root() / "backend" / "logs"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _rotate_log_file(path: Path, max_bytes: int = 2 * 1024 * 1024 * 1024, keep: int = 5) -> None:
+    if not path.exists():
+        return
+    if path.stat().st_size <= max_bytes:
+        return
+
+    # Rotate: file.log.(keep-1) -> file.log.keep ... file.log -> file.log.1
+    for idx in range(keep, 0, -1):
+        src = path.with_name(f"{path.name}.{idx}")
+        dst = path.with_name(f"{path.name}.{idx + 1}")
+        if src.exists():
+            if idx == keep:
+                src.unlink(missing_ok=True)
+            else:
+                src.replace(dst)
+    path.replace(path.with_name(f"{path.name}.1"))
+
+
+def _clear_log_file(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text("", encoding="utf-8")
+        return
+    try:
+        with path.open("w", encoding="utf-8"):
+            pass
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Log file is in use: {path.name}. "
+                "Stop the related service first (API log runner/Worker), then clear logs."
+            ),
+        ) from exc
 
 
 def _pid_file(service: str) -> Path:
@@ -104,28 +162,68 @@ def _start_managed_service(service: str) -> dict[str, str | int | bool | None]:
         return state
 
     backend_dir = _project_root() / "backend"
+    logs_dir = _logs_dir()
+    creationflags = 0x00000200 | 0x08000000  # CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0  # SW_HIDE
+    pythonw = backend_dir / ".venv" / "Scripts" / "pythonw.exe"
+    python = backend_dir / ".venv" / "Scripts" / "python.exe"
+    python_bin = pythonw if pythonw.exists() else python
+
     if service == "worker":
-        command = "Set-Location .; .\\run_worker.ps1"
+        worker_log_path = logs_dir / "worker.log"
+        _rotate_log_file(worker_log_path)
+        worker_log = worker_log_path.open("a", encoding="utf-8", buffering=1)
+        proc = subprocess.Popen(  # noqa: S603
+            [
+                str(python_bin),
+                "-X",
+                "utf8",
+                "-m",
+                "celery",
+                "-A",
+                "app.workers.celery_app:celery_app",
+                "worker",
+                "--loglevel=info",
+                "--pool=solo",
+            ],
+            cwd=backend_dir,
+            stdout=worker_log,
+            stderr=subprocess.STDOUT,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+            close_fds=True,
+        )
+        worker_log.close()
     elif service == "api":
-        command = "Set-Location .; .\\run_api.ps1"
+        api_log_path = logs_dir / "backend.log"
+        _rotate_log_file(api_log_path)
+        api_log = api_log_path.open("a", encoding="utf-8", buffering=1)
+        proc = subprocess.Popen(  # noqa: S603
+            [
+                str(python_bin),
+                "-X",
+                "utf8",
+                "-m",
+                "uvicorn",
+                "app.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000",
+            ],
+            cwd=backend_dir,
+            stdout=api_log,
+            stderr=subprocess.STDOUT,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+            close_fds=True,
+        )
+        api_log.close()
     else:
         raise HTTPException(status_code=404, detail=f"Unknown service '{service}'")
 
-    creationflags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-    proc = subprocess.Popen(  # noqa: S603
-        [
-            "powershell",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            command,
-        ],
-        cwd=backend_dir,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        creationflags=creationflags,
-    )
     _write_pid(service, proc.pid)
     time.sleep(0.4)
     return _service_status(service)
@@ -156,12 +254,13 @@ def _stop_managed_service(service: str) -> dict[str, str | int | bool | None]:
 def get_service_logs(
     service: str,
     lines: int = Query(default=120, ge=20, le=1000),
-) -> dict[str, str | int]:
+) -> dict[str, str | int | None]:
     service_name = service.strip().lower()
     logs_dir = _project_root() / "backend" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     if service_name == "worker":
+        log_path = logs_dir / "worker.log"
         content = _read_tail(logs_dir / "worker.log", lines)
         if not content:
             content = (
@@ -169,26 +268,43 @@ def get_service_logs(
                 "Start worker via: cd backend && .\\run_worker.ps1\n"
                 "Then reload this logs page."
             )
-        return {"service": "worker", "lines": lines, "content": content}
+        return {
+            "service": "worker",
+            "lines": lines,
+            "content": content,
+            "log_size_bytes": log_path.stat().st_size if log_path.exists() else 0,
+        }
 
     if service_name == "backend":
+        log_path = logs_dir / "backend.log"
         content = _read_tail(logs_dir / "backend.log", lines)
-        if not content:
+        if not content or not content.strip():
             content = (
-                "No backend.log found yet.\n"
-                "Recommended start command:\n"
-                "cd backend && .\\run_api.ps1"
+                "Backend log is empty.\n"
+                "Start API via System Status (API log runner -> Start) or with:\n"
+                "cd backend && .\\run_api.ps1\n"
+                "Then call an endpoint (e.g. /health) and reload this page."
             )
         else:
             content = _normalize_backend_logs(content)
-        return {"service": "backend", "lines": lines, "content": content}
+        return {
+            "service": "backend",
+            "lines": lines,
+            "content": content,
+            "log_size_bytes": log_path.stat().st_size if log_path.exists() else 0,
+        }
 
     if service_name == "opensearch":
         try:
             content = _docker_compose_logs("opensearch", lines)
             if not content.strip():
                 content = "No OpenSearch log lines returned."
-            return {"service": "opensearch", "lines": lines, "content": content}
+            return {
+                "service": "opensearch",
+                "lines": lines,
+                "content": content,
+                "log_size_bytes": len(content.encode("utf-8", errors="replace")),
+            }
         except Exception as exc:
             raise HTTPException(status_code=503, detail=f"Could not fetch OpenSearch logs: {exc}") from exc
 
@@ -221,3 +337,23 @@ def control_service(service: str, action: str) -> dict[str, str | int | bool | N
         state = _start_managed_service(svc)
 
     return {"service": svc, "action": act, **state}
+
+
+@router.post("/logs/{service}/clear")
+def clear_service_logs(service: str) -> dict[str, str]:
+    service_name = service.strip().lower()
+    logs_dir = _logs_dir()
+
+    if service_name == "backend":
+        _clear_log_file(logs_dir / "backend.log")
+        return {"service": "backend", "status": "cleared"}
+    if service_name == "worker":
+        _clear_log_file(logs_dir / "worker.log")
+        return {"service": "worker", "status": "cleared"}
+    if service_name == "opensearch":
+        raise HTTPException(
+            status_code=400,
+            detail="OpenSearch logs are provided by Docker. Clearing from app is not supported.",
+        )
+
+    raise HTTPException(status_code=404, detail=f"Unknown service '{service_name}'")

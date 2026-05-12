@@ -14,7 +14,6 @@ function SystemStatusPage() {
   const [apiManagedRunning, setApiManagedRunning] = useState(false)
   const [workerLiveOnline, setWorkerLiveOnline] = useState(false)
   const [controlBusy, setControlBusy] = useState<string | null>(null)
-  const [controlMessage, setControlMessage] = useState<string>('')
 
   useEffect(() => {
     const load = async () => {
@@ -46,11 +45,24 @@ function SystemStatusPage() {
 
   const workerEffectiveRunning = workerRunning || workerLiveOnline
   const apiEffectiveRunning = apiManagedRunning || apiStatus === 'operational'
+  const workerBusy = controlBusy?.startsWith('worker:') ?? false
+  const apiBusy = controlBusy?.startsWith('api:') ?? false
+  const workerStateLabel =
+    controlBusy === 'worker:start' || controlBusy === 'worker:restart'
+      ? 'starting'
+      : workerEffectiveRunning
+        ? 'started'
+        : 'stopped'
+  const apiStateLabel =
+    controlBusy === 'api:start' || controlBusy === 'api:restart'
+      ? 'starting'
+      : apiEffectiveRunning
+        ? 'started'
+        : 'stopped'
 
   const runControlAction = async (service: ServiceKey, action: ServiceAction) => {
     const key = `${service}:${action}`
     setControlBusy(key)
-    setControlMessage('')
     try {
       const updated = await controlService(service, action)
       if (service === 'worker') {
@@ -58,9 +70,6 @@ function SystemStatusPage() {
       } else {
         setApiManagedRunning(updated.running)
       }
-      setControlMessage(`${service.toUpperCase()} ${action} executed`)
-    } catch {
-      setControlMessage(`Could not ${action} ${service}`)
     } finally {
       setControlBusy(null)
       setLastCheck(new Date().toLocaleString())
@@ -88,58 +97,57 @@ function SystemStatusPage() {
           <span>{lastCheck}</span>
         </div>
         <div className="status-row">
-          <span>Worker process</span>
+          <span>{`Worker process (${workerStateLabel})`}</span>
           <div className="status-inline-controls">
             <button
               type="button"
               onClick={() => void runControlAction('worker', 'start')}
-              disabled={controlBusy !== null || workerEffectiveRunning}
+              disabled={workerBusy || workerEffectiveRunning}
             >
               Start
             </button>
             <button
               type="button"
               onClick={() => void runControlAction('worker', 'stop')}
-              disabled={controlBusy !== null || !workerEffectiveRunning}
+              disabled={workerBusy || !workerEffectiveRunning}
             >
               Stop
             </button>
             <button
               type="button"
               onClick={() => void runControlAction('worker', 'restart')}
-              disabled={controlBusy !== null}
+              disabled={workerBusy}
             >
               Restart
             </button>
           </div>
         </div>
         <div className="status-row">
-          <span>API log runner</span>
+          <span>{`API log runner (${apiStateLabel})`}</span>
           <div className="status-inline-controls">
             <button
               type="button"
               onClick={() => void runControlAction('api', 'start')}
-              disabled={controlBusy !== null || apiEffectiveRunning}
+              disabled={apiBusy || apiEffectiveRunning}
             >
               Start
             </button>
             <button
               type="button"
               onClick={() => void runControlAction('api', 'stop')}
-              disabled={controlBusy !== null || !apiEffectiveRunning}
+              disabled={apiBusy || !apiEffectiveRunning}
             >
               Stop
             </button>
             <button
               type="button"
               onClick={() => void runControlAction('api', 'restart')}
-              disabled={controlBusy !== null}
+              disabled={apiBusy}
             >
               Restart
             </button>
           </div>
         </div>
-        {controlMessage ? <p className="status-control-message">{controlMessage}</p> : null}
       </div>
     </>
   )
