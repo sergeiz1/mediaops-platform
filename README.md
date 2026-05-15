@@ -1,4 +1,4 @@
-# Media Operations Platform
+﻿# Media Operations Platform
 
 A showcase project for a modern multimedia platform focused on asset lifecycle management, asynchronous processing, operational visibility, and user-centric web workflows.
 
@@ -122,34 +122,37 @@ Detailed decision records and runbook docs are available in:
 
 ```text
 mediaops-platform/
-├─ backend/
-│  ├─ alembic/
-│  ├─ app/
-│  │  ├─ api/
-│  │  ├─ core/
-│  │  ├─ models/
-│  │  ├─ repositories/
-│  │  ├─ schemas/
-│  │  ├─ services/
-│  │  └─ workers/
-│  └─ alembic.ini
-├─ frontend/
-│  ├─ public/
-│  └─ src/
-│     ├─ api/
-│     ├─ app/
-│     ├─ components/
-│     ├─ features/
-│     ├─ pages/
-│     ├─ styles/
-│     └─ types/
-├─ docs/
-├─ infra/
-├─ storage/
-├─ docker-compose.yml
-└─ README.md
+|- backend/
+|  |- alembic/
+|  |  |- versions/
+|  |- app/
+|  |  |- api/v1/              # assets, health, system, auth
+|  |  |- core/                # config, database, logging, security
+|  |  |- models/              # asset, user
+|  |  |- repositories/        # asset_repository, user_repository
+|  |  |- schemas/             # asset, auth
+|  |  |- services/            # asset, search, auth
+|  |  |- workers/
+|  |- logs/
+|  |- run_api.ps1
+|  |- run_worker.ps1
+|  |- alembic.ini
+|- frontend/
+|  |- public/
+|  |- src/
+|  |  |- api/
+|  |  |- app/
+|  |  |- components/
+|  |  |- features/
+|  |  |- pages/
+|  |  |- styles/
+|  |  |- types/
+|- docs/
+|- infra/
+|- storage/
+|- docker-compose.yml
+|- README.md
 ```
-
 ---
 
 ## Local Development
@@ -268,10 +271,13 @@ curl -X POST http://localhost:8000/api/v1/assets/reindex
 - [x] System status controls (worker/api start, stop, restart)
 - [x] Centralized logs view (backend, worker, opensearch)
 - [x] Log management (clear action, size indicator, rotation)
-
+- [x] Auth backend foundation (users table, JWT login, role model)
+- [x] RBAC on API routes (viewer/editor/admin guards)
+- [ ] Frontend auth flow (login UI, token storage, role-based route guards)
 ---
 
 ## Author
 
 Showcase project by Sergei Z.  
 Software Engineer | Platform Architecture | Full-Stack Development
+
