@@ -187,6 +187,31 @@ docker compose up -d postgres redis opensearch
 PostgreSQL is exposed on `localhost:5433`.
 OpenSearch is exposed on `http://localhost:9200`.
 
+### OpenSearch Start Notes (Docker)
+
+If OpenSearch does not come up, check:
+
+```bash
+docker compose logs opensearch --tail=120
+```
+
+For OpenSearch 2.12+, you must either:
+
+1. Set an initial admin password in `docker-compose.yml`:
+
+```yaml
+environment:
+  - OPENSEARCH_INITIAL_ADMIN_PASSWORD=YourStrongPassword123!
+```
+
+2. Or disable the security plugin in your OpenSearch container config.
+
+Then restart:
+
+```bash
+docker compose up -d opensearch
+```
+
 ### Migrations
 
 ```bash
@@ -239,6 +264,10 @@ curl -X POST http://localhost:8000/api/v1/assets/reindex
 - [x] Search and filtering
 - [x] OpenSearch integration (indexing, querying, reindex endpoint)
 - [x] Frontend GUI completion (assets, upload, jobs, filters, actions)
+- [x] Operations dashboard KPIs (assets, funnel, activity, failure monitor)
+- [x] System status controls (worker/api start, stop, restart)
+- [x] Centralized logs view (backend, worker, opensearch)
+- [x] Log management (clear action, size indicator, rotation)
 
 ---
 

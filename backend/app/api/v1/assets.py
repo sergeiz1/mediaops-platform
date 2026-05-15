@@ -3,8 +3,10 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.api.v1.auth_deps import require_min_role
 from app.core.database import get_db
 from app.models.asset import AssetStatus, AssetVisibility
+from app.models.user import UserRole
 from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate, AssetUploadResponse
 from app.services.asset_service import (
     build_upload_file_key,
@@ -32,6 +34,7 @@ def list_assets_endpoint(
     event_name: str | None = Query(default=None),
     sort: Literal["newest", "oldest", "title"] = Query(default="newest"),
     db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.VIEWER)),
 ) -> list[AssetRead]:
     return get_assets(
         db,
@@ -48,58 +51,92 @@ def list_assets_endpoint(
 def get_asset_stats_endpoint(
     days: int = Query(default=7, ge=1, le=90),
     db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.VIEWER)),
 ) -> dict:
     return get_dashboard_stats(db, days=days)
 
 
 @router.post("/reindex", status_code=status.HTTP_202_ACCEPTED)
-def reindex_assets_endpoint(db: Session = Depends(get_db)) -> dict[str, int]:
+def reindex_assets_endpoint(
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
+) -> dict[str, int]:
     indexed = reindex_all_assets(db)
     return {"indexed": indexed}
 
 
 @router.get("/reindex", status_code=status.HTTP_200_OK)
-def reindex_assets_endpoint_get(db: Session = Depends(get_db)) -> dict[str, int]:
+def reindex_assets_endpoint_get(
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
+) -> dict[str, int]:
     indexed = reindex_all_assets(db)
     return {"indexed": indexed}
 
 
 @router.get("/{asset_id}", response_model=AssetRead)
-def get_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
+def get_asset_endpoint(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.VIEWER)),
+) -> AssetRead:
     return get_asset_or_404(db, asset_id)
 
 
 @router.post("", response_model=AssetRead, status_code=status.HTTP_201_CREATED)
-def create_asset_endpoint(payload: AssetCreate, db: Session = Depends(get_db)) -> AssetRead:
+def create_asset_endpoint(
+    payload: AssetCreate,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
+) -> AssetRead:
     return create_asset_record(db, payload)
 
 
 @router.patch("/{asset_id}", response_model=AssetRead)
 def update_asset_endpoint(
-    asset_id: int, payload: AssetUpdate, db: Session = Depends(get_db)
+    asset_id: int,
+    payload: AssetUpdate,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
 ) -> AssetRead:
     return update_asset_record(db, asset_id, payload)
 
 
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> Response:
+def delete_asset_endpoint(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.ADMIN)),
+) -> Response:
     delete_asset_record(db, asset_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{asset_id}/process", status_code=status.HTTP_202_ACCEPTED)
-def process_asset_endpoint(asset_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
+def process_asset_endpoint(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
+) -> dict[str, str]:
     enqueue_asset_processing(db, asset_id)
     return {"status": "accepted"}
 
 
 @router.post("/{asset_id}/mark-ready", response_model=AssetRead)
-def mark_ready_endpoint(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
+def mark_ready_endpoint(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
+) -> AssetRead:
     return resolve_processing_asset(db, asset_id, AssetStatus.READY)
 
 
 @router.post("/{asset_id}/mark-failed", response_model=AssetRead)
-def mark_failed_endpoint(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
+def mark_failed_endpoint(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
+) -> AssetRead:
     return resolve_processing_asset(db, asset_id, AssetStatus.FAILED)
 
 
@@ -111,6 +148,7 @@ async def upload_asset_endpoint(
     speaker: str | None = Form(default=None),
     event_name: str | None = Form(default=None),
     db: Session = Depends(get_db),
+    _: object = Depends(require_min_role(UserRole.EDITOR)),
 ) -> AssetUploadResponse:
     file_key = build_upload_file_key(file.filename or "upload.bin")
     stored_path = resolve_storage_path(file_key)

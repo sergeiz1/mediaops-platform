@@ -27,6 +27,15 @@ class Settings(BaseSettings):
         default="assets",
         validation_alias="OPENSEARCH_INDEX",
     )
+    auth_secret_key: str = Field(
+        default="change-this-in-production",
+        validation_alias="AUTH_SECRET_KEY",
+    )
+    auth_algorithm: str = Field(default="HS256", validation_alias="AUTH_ALGORITHM")
+    auth_access_token_expire_minutes: int = Field(
+        default=60,
+        validation_alias="AUTH_ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
